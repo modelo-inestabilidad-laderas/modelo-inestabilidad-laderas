@@ -1,22 +1,31 @@
-from qgis.PyQt.QtCore import QCoreApplication
+from qgis.PyQt.QtCore import QCoreApplication, QVariant
 from qgis.core import (QgsProcessing,
+                       QgsFeatureSink,
+                       QgsFeature,
+                       QgsField,
+                       QgsFields,
+                       QgsVectorLayer,
                        QgsProcessingAlgorithm,
                        QgsProcessingException,
-                       QgsProcessingOutputNumber,
-                       QgsProcessingParameterDistance,
                        QgsProcessingParameterFeatureSource,
                        QgsProcessingParameterFile,
-                       QgsProcessingParameterVectorDestination,
-                       QgsProcessingParameterRasterDestination,
-                       QgsVectorLayer)
+                       QgsProcessingParameterFeatureSink)
 from qgis import processing
-from qgis.core import edit
+
 
 class UnionCuencasHumedadEnCuencasProcessingAlgorithm(QgsProcessingAlgorithm):
     """
-    This is an example algorithm that takes a vector layer,
-    creates some new layers and returns some results.
+    Este algoritmo realiza una unión (join) de las geometrías de una capa vectorial
+    de cuencas hidrográficas y un archivo de texto con datos de humedad de las cuencas.
+      - La capa de cuencas debe tener la columna: 'BASIN' (código de la cuenca)
+      - El archivo de texto debe estar separado por tabuladores y tener dos columnas:
+        'BASIN' y una columna numérica (con cualquier nombre) con el dato de humedad.
+      - La capa de salida tendrá las columnas: 'BASIN' y 'HUMEDAD'
     """
+    INPUT = 'INPUT'
+    OUTPUT = 'OUTPUT'
+    TEXTFILE = 'TEXTFILE'
+    
 
     def tr(self, string):
         """
@@ -25,7 +34,6 @@ class UnionCuencasHumedadEnCuencasProcessingAlgorithm(QgsProcessingAlgorithm):
         return QCoreApplication.translate('Processing', string)
 
     def createInstance(self):
-        # Must return a new copy of your algorithm.
         return UnionCuencasHumedadEnCuencasProcessingAlgorithm()
 
     def name(self):
@@ -65,22 +73,22 @@ class UnionCuencasHumedadEnCuencasProcessingAlgorithm(QgsProcessingAlgorithm):
         """
         self.addParameter(
             QgsProcessingParameterFeatureSource(
-                'INPUT',
+                self.INPUT,
                 self.tr('Geometrías de cuencas'),
                 types=[QgsProcessing.TypeVectorAnyGeometry]
             )
         )
         self.addParameter(
             QgsProcessingParameterFile(
-                'TEXTFILE',
+                self.TEXTFILE,
                 self.tr('Datos de humedad en cuencas'),
-                extension='csv'
+                extension='txt'
             )
         )        
         self.addParameter(
-            QgsProcessingParameterVectorDestination(
-                'OUTPUT',
-                self.tr('Unión de geometrías de cuencas y datos de humedad en cuencas'),
+            QgsProcessingParameterFeatureSink(
+                self.OUTPUT,
+                self.tr('Unión'),
             )
         )          
 
@@ -88,47 +96,79 @@ class UnionCuencasHumedadEnCuencasProcessingAlgorithm(QgsProcessingAlgorithm):
         """
         Here is where the processing itself takes place.
         """
-        input_featuresource = self.parameterAsSource(parameters,
-                                                     'INPUT',
-                                                     context)
+        source = self.parameterAsSource(
+            parameters,
+            self.INPUT,
+            context
+        )
+        text_file_path = self.parameterAsString(
+            parameters,
+            self.TEXTFILE,
+            context
+        )
                                                      
         # Check for cancelation
         if feedback.isCanceled():
             return {}
-          
-        text_file_path = self.parameterAsString(parameters, 'TEXTFILE', context)
+            
+            
+        # Impresión de la ruta original del archivo de texto
+        feedback.pushInfo(text_file_path)
         
-        #options = '?delimiter=%5Ct&detectTypes=yes'
-        options = '?delimiter=,&detectTypes=yes'
+        # Reemplazo de barras invertidas por barras
+        text_file_path = text_file_path.replace("\\", "/")
+        # Impresión de la ruta modificada del archivo de texto
+        feedback.pushInfo(text_file_path)
         
-        uri = 'file://{}{}'.format(text_file_path, options)
+        # Opciones para procesamiento del archivo de texto
+        options = '?delimiter=%5Ct&detectTypes=yes' # delimitador = tabulador
+        # options = '?delimiter=,&detectTypes=yes' # delimitador = coma
         
-        vlayer = QgsVectorLayer(uri, 'tabla', 'delimitedtext')
+        uri = 'file:///{}{}'.format(text_file_path, options)
         
-        feedback.pushInfo('1')
-        feedback.pushInfo(' '.join(vlayer.fields().names()))
+        vlayer = QgsVectorLayer(uri, 'datos_humedad_cuencas', 'delimitedtext')
+        if not vlayer.isValid():
+            raise QgsProcessingException(self.tr('La capa generada por el archivo de texto es no es válida.'))
+                   
+        feedback.pushInfo('Columnas del archivo de texto: {}'.format(vlayer.fields().names()))
         
-        # Renombrar la segunda columna a "humedad"
+        # Configuración del archivo de salida (sink)
+        fields = QgsFields()
+        fields.append(QgsField('BASIN', QVariant.String))
+        fields.append(QgsField('HUMEDAD', QVariant.Double))
         
-        feedback.pushInfo('2')
-        feedback.pushInfo(' '.join(vlayer.fields().names()))
-             
-        join_result = processing.run(
+        (sink, dest_id) = self.parameterAsSink(
+            parameters,
+            self.OUTPUT,
+            context, fields, source.wkbType(), source.sourceCrs())
+                   
+        # Unión de los conjuntos de datos
+        joined_layer = processing.run(
             'qgis:joinattributestable',
             {
-               'INPUT': parameters['INPUT'],
+               'INPUT': parameters[self.INPUT],
                'FIELD': 'BASIN',
                'INPUT_2': vlayer,
                'FIELD_2': 'BASIN',
-               'FIELDS_TO_COPY': '06ASM2024052006',
-               'OUTPUT': parameters['OUTPUT'],
+               'FIELDS_TO_COPY': '', # se incluyen las dos columnas del archivo de texto
+               'OUTPUT': 'memory:'
             },
-            is_child_algorithm=True,
             context=context,
-            feedback=feedback)
+            feedback=feedback)['OUTPUT']
 
         if feedback.isCanceled():
             return {}
+            
+        feedback.pushInfo('Columnas de la capa de unión: {}'.format(joined_layer.fields().names()))
 
-        # Return the results
-        return {'OUTPUT': join_result['OUTPUT']}
+        # Se recorre la capa de unión y se crean los registros de la salida
+        for f in joined_layer.getFeatures():
+            new_feature =  QgsFeature()
+            # Set geometry to dissolved geometry
+            new_feature.setGeometry(f.geometry())
+            # Set attributes
+            new_feature.setAttributes([f['BASIN'], f[2]]) # el dato de humedad debe estar en la tercera columna de la capa de unión
+            sink.addFeature(new_feature, QgsFeatureSink.FastInsert)        
+        
+        
+        return {self.OUTPUT: dest_id}
