@@ -1,4 +1,5 @@
 # Modelo de inestabilidad de laderas
+
 Este repositorio contiene los archivos correspondientes a la implementación de un modelo de inestabilidad de laderas en el sistema de información geográfica [QGIS](https://qgis.org/).
 
 ## Instalación
@@ -22,13 +23,12 @@ Este repositorio contiene los archivos correspondientes a la implementación de 
 
     a. Especifique los archivos de entrada del sistema:
 
-        - Archivo TIFF (.tif) de lluvia.
-        - Archivo de texto (.txt) con datos de humedad en cuencas.
+    - Humedad en cuencas (archivo de texto).  
+    - Lluvia (archivo TIFF).      
 
-![](img/modelo-entradas.png)
-        
+    b. Inicie la ejecución con el botón **Run**.        
 
-    b. Inicie la ejecución con el botón **Run**.
+![](img/modelo-entradas.png)  
     
 3. Al finalizar la ejecución, podrá visualizar en QGIS todas las salidas del modelo, incluyendo la capa `amenaza-deslizamiento`, la cual puede considerarse el resultado final. Puede estilizar esta capa con el archivo de estilos `amenaza-deslizamiento.qml`.
 
