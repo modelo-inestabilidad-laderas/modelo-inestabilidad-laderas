@@ -2,6 +2,8 @@
 
 Este repositorio contiene los archivos correspondientes a la implementación de un modelo de inestabilidad de laderas en el sistema de información geográfica [QGIS](https://qgis.org/).
 
+[Video demostrativo sobre la instalación y el uso del modelo](https://raw.githubusercontent.com/modelo-inestabilidad-laderas/modelo-inestabilidad-laderas/main/doc/video/demostracion-instalacion-uso.mp4)
+
 ## Instalación
 1. Instale en su computadora el sistema de información geográfica [QGIS](https://qgis.org/).
 
