@@ -23,10 +23,14 @@ Este repositorio contiene los archivos correspondientes a la implementación de 
 
     a. Especifique los archivos de entrada del sistema:
 
-    - Humedad en cuencas (archivo de texto).  
-    - Lluvia (archivo TIFF).      
+    - Humedad en cuencas (archivo de texto)  
+    - Lluvia (archivo TIFF)      
 
-    b. Inicie la ejecución con el botón **Run**.        
+    b. Especifique los archivos de salida del sistema. Si no se especifica un archivo, QGIS guardará los resultados como capas temporales que se borran al salir del programa. Se recomienda almacenar en un archivo, al menos el resultado final:
+
+    - amenaza_deslizamiento  
+
+    c. Inicie la ejecución con el botón **Run**.        
 
 ![](img/modelo-entradas.png)  
     
